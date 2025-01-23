@@ -1,0 +1,239 @@
+﻿@model List<DownNotifier.Application.Features.TargetAppFeatures.Query.GetTargetAppsForUserResponse>
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="d-flex">
+
+    <h1>Dashboard (@User.Identity?.Name)</h1>
+    <a class="btn btn-primary align-self-end ms-auto" asp-area="" asp-controller="Dashboard" asp-action="CreateTargetApp">Create App</a>
+</div>
+
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>App Name</th>
+            <th>App URL</th>
+            <th>Monitoring Interval</th>
+            <th>Last Check Date</th>
+            <th>Operations</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var targetApp in Model)
+        {
+            <tr>
+                <td>@targetApp.Name</td>
+                <td>@targetApp.URL</td>
+                <td>@targetApp.MonitoringIntervalInSeconds Seconds</td>
+                <td>@TimeZoneInfo.ConvertTimeFromUtc(targetApp.LastCheckDate, TimeZoneInfo.Local)</td>
+                <td>
+                    <div>
+                        <button type="button" class="btn-check-application btn btn-sm btn-info" data-app-id="@targetApp.Id" data-app-name="@targetApp.Name" data-app-url="@targetApp.URL" data-bs-toggle="modal" data-bs-target="#CheckApplicationModal">
+                            Check Now
+                        </button>
+                        <a asp-controller="Dashboard" asp-action="UpdateTargetApp" asp-route-id="@targetApp.Id" class="btn btn-sm btn-warning">Edit</a>
+                        <button type="button" class="btn-remove-application btn btn-sm btn-danger" data-app-id="@targetApp.Id" data-app-name="@targetApp.Name" data-app-url="@targetApp.URL" data-bs-toggle="modal" data-bs-target="#RemoveApplicationModal">
+                            Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (Model == null || Model.Count == 0)
+{
+    <div>
+        <p class="text-center">
+            Looks like you don&apos;t have an Application.
+            <br />
+            <a asp-controller="Dashboard" asp-action="CreateTargetApp">Create a new one</a>
+        </p>
+    </div>
+}
+
+<!-- Check Application Modal -->
+<div class="modal" id="CheckApplicationModal" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h4 class="modal-title">Checking Application State</h4>
+                <button type="button" class="btn btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="modal-body">
+                <div class="d-flex gap-1 align-items-end">
+                    <p id="CheckApplicationModalAppName" class="fw-bold"></p>
+                    <p id="CheckApplicationModalAppURL" style="font-size:.7rem"></p>
+                </div>
+                <div class="d-flex gap-1 align-items-center">
+                    <div id="checkApplicationIndicator" class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span id="checkApplicationIndicatorText"></span>
+                </div>
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-info" id="checkApplicationDoWorkBtn">Check</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Remove Application Modal -->
+<div class="modal" id="RemoveApplicationModal" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <!-- Modal Header -->
+            <div class="modal-header">
+                <h4 class="modal-title">Delete Application</h4>
+                <button type="button" class="btn-remove-app-modal btn btn-close" data-bs-dismiss="modal" disabled></button>
+            </div>
+
+            <!-- Modal body -->
+            <div class="modal-body">
+                <p>Are you sure you want to delete this application?</p>
+                <div class="d-flex gap-1 align-items-end">
+                    <p id="RemoveApplicationModalAppName" class="fw-bold"></p>
+                    <p id="RemoveApplicationModalAppURL" style="font-size:.7rem"></p>
+                </div>
+                <span class="fw-bold text-danger" style="font-size:.6rem;">This operation cannot be undone.</span>
+            </div>
+
+            <!-- Modal footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn-remove-app-modal btn btn-danger" id="deleteApplicationDoWorkBtn">Delete</button>
+                <button type="button" class="btn-remove-app-modal btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong id="toast-title" class="me-auto">Bootstrap</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div id="toast-body" class="toast-body"></div>
+    </div>
+</div>
+
+
+<script type="text/javascript">
+    $(function () {
+
+        let selectedAppId = 0;
+        let selectedAppName = "";
+        let selectedAppUrl = "";
+
+        const checkApplicationIndicator = $("#checkApplicationIndicator");
+        const checkApplicationIndicatorText = $("#checkApplicationIndicatorText");
+        checkApplicationIndicator.addClass('d-none');
+
+        $("#checkApplicationDoWorkBtn").click(function () {
+            checkApplicationIndicatorText.removeClass('text-success text-danger');
+            checkApplicationIndicatorText.text("HealthCheck operation working...");
+            checkApplicationIndicator.removeClass('d-none');
+
+            $.ajax({
+                type: "POST",
+                url: '/Dashboard/CheckApplication',
+                data: JSON.stringify(selectedAppUrl),
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+                success: function (e) {
+                    checkApplicationIndicator.addClass('d-none');
+                    if (e && e.state === true) {
+                        if (e.serviceState) {
+                            checkApplicationIndicatorText.addClass('text-success');
+                            checkApplicationIndicatorText.text("Service is Healthy");
+                        } else {
+                            checkApplicationIndicatorText.addClass('text-danger');
+                            checkApplicationIndicatorText.text("Service is NOT Healthy");
+                        }
+                    } else {
+                        checkApplicationIndicatorText.addClass('text-danger');
+                        checkApplicationIndicatorText.text("An error occured while checking app health.");
+                    }
+                },
+                error: function (e) {
+                    checkApplicationIndicatorText.addClass('text-danger');
+                    checkApplicationIndicatorText.text("An error occured while checking app health.");
+                    checkApplicationIndicator.addClass('d-none');
+                }
+            });
+        });
+
+        $("#deleteApplicationDoWorkBtn").click(function () {
+            $(this).html('<div class="spinner-border spinner-border-sm text-light me-2" role="status"></div><span>Delete</span>');
+            const removeAppModalButtons = $(".btn-remove-app-modal");
+            removeAppModalButtons.attr('disabled', true);
+            const removeApplicationToast = $('#toast');
+            var toast = new bootstrap.Toast(removeApplicationToast);
+
+            const toastTitle = $("#toast-title");
+            const toastBody = $("#toast-body");
+
+            $.ajax({
+                type: "DELETE",
+                url: '/Dashboard/DeleteApplication',
+                data: JSON.stringify(selectedAppId),
+                dataType: "json",
+                contentType: "application/json; charset=utf-8",
+                success: function (e) {
+                    removeAppModalButtons.removeAttr('disabled');
+                    $(this).text('Delete');
+                    toast.show();
+                    if (e) {
+                        if (e.state === true) {
+                            $("#RemoveApplicationModal").modal('toggle');
+                            setTimeout(() => location.reload(), 500);
+                            toastTitle.text("Success");
+                            toastBody.text("App deleted succesfully.");
+                        } else {
+                            toastTitle.text("Error");
+                            toastBody.text("An error occured while trying app to delete.");
+                        }
+                    }
+                },
+                error: function (e) {
+                    removeAppModalButtons.removeAttr('disabled');
+                    $(this).text('Delete');
+                    toastTitle.text("Error");
+                    toastBody.text("An error occured while trying app to delete.");
+                }
+            });
+        });
+
+        $(".btn-check-application").click(function () {
+            selectedAppId = $(this).attr('data-app-id');
+            selectedAppName = $(this).attr('data-app-name');
+            selectedAppUrl = $(this).attr('data-app-url');
+            checkApplicationIndicatorText.removeClass('text-success text-danger');
+            checkApplicationIndicatorText.text('');
+            $("p#CheckApplicationModalAppName").text(selectedAppName);
+            $("p#CheckApplicationModalAppURL").text('(' + selectedAppUrl + ')');
+        });
+        $(".btn-remove-application").click(function () {
+            selectedAppId = $(this).attr('data-app-id');
+            selectedAppName = $(this).attr('data-app-name');
+            selectedAppUrl = $(this).attr('data-app-url');
+            $("p#RemoveApplicationModalAppName").text(selectedAppName);
+            $("p#RemoveApplicationModalAppURL").text('(' + selectedAppUrl + ')');
+        });
+    });
+</script>

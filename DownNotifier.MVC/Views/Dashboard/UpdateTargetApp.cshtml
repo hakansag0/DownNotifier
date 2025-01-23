@@ -1,0 +1,32 @@
+﻿@model DownNotifier.Application.Features.TargetAppFeatures.Query.GetTargetAppByIdForUserResponse
+@{
+    ViewData["Title"] = "Edit Target App";
+}
+<h1>@Model.Name - Edit Target App</h1>
+
+<form method="post" class="d-flex flex-column mt-4">
+    <div class="row">
+        <div class="col-4">
+            <label for="name" class="form-label" style="font-size:.9rem;">Name:</label>
+            <input type="text" id="name" value="@Model.Name" name="Name" required autocomplete="off" class="form-control" />
+        </div>
+        <div class="col-4">
+            <label for="url" class="form-label" style="font-size:.9rem;">URL:</label>
+            <input type="url" id="url" value="@Model.URL" name="Url" required autocomplete="off" class="form-control" />
+        </div>
+        <div class="col-4">
+            <label for="interval" class="form-label" style="font-size:.9rem;">Monitoring Interval:</label>
+            <input type="number" id="interval" value="@Model.MonitoringIntervalInSeconds" name="MonitoringIntervalInSeconds" required min="10" max="999999999" maxlength="9" autocomplete="off" class="form-control" />
+            <span style="font-size:.75rem;">Interval must be in seconds.</span>
+        </div>
+        <div class="col-4 offset-8 d-flex">
+            <button type="submit" class="btn btn-primary mt-4 ms-auto">Save</button>
+        </div>
+    </div>
+    @{
+        if (ViewBag.ErrorMessage != null)
+        {
+            <p style="color:red; font-size:.9rem;">@ViewBag.ErrorMessage</p>
+        }
+    }
+</form>
